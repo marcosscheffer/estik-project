@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: postgres-estik
+    environment:
+      POSTGRES_DB: ${DB_NAME:-estik-db}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-estik-db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin-estik
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+
+  app-api:
+    build:
+      context: ./backend
+    container_name: spring-estik-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${DB_NAME:-estik-db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SECRET_KEY: ${SECRET_KEY:-sua_secret_aqui}
+
+  app-frontend:
+    build:
+      context: ./frontend 
+      args:
+        VITE_API_URL: http://localhost:8080  # URL da API acessível pelo navegador
+    container_name: frontend-estik
+    ports:
+      - "3000:80"  # Frontend acessível em http://localhost:3000
+    depends_on:
+      - app-api
+
+  postgres-backup:
+    build:
+      context: ./backend/backup
+    container_name: postgres-estik-backup
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres-db
+      PGPORT: 5432
+      PGDATABASE: ${DB_NAME:-estik-db}
+      PGUSER: ${DB_USERNAME:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./backups:/backups
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  pgadmindata:

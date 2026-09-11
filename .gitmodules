@@ -1,0 +1,9 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/marcosscheffer/estik-react.git
+[submodule "backend"]
+	path = backend
+	url = git@github.com:marcosscheffer/estik-api.git
+[submodule "fronend"]
+	path = frontend
+	url = git@github.com:marcosscheffer/estik-react.git
